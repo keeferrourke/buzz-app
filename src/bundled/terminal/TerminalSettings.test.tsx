@@ -15,14 +15,14 @@ import { ToastProvider } from "../../shared/design-system/ui/Toast";
 import {
   createTerminalFontPreference,
   TERMINAL_FONT_KEY,
-  type TerminalFontPreference,
 } from "./font-preference";
+import { createTerminalThemePreference } from "./theme-preference";
 import {
   createTerminalSettingsDraft,
   TerminalSettings,
 } from "./TerminalSettings";
 
-const stores: TerminalFontPreference[] = [];
+const stores: { dispose(): void }[] = [];
 const loadFont = vi.fn<(font: string) => Promise<FontFace[]>>();
 const fontsDescriptor = Object.getOwnPropertyDescriptor(document, "fonts");
 beforeEach(() => {
@@ -52,16 +52,22 @@ beforeEach(() => {
 });
 function setup() {
   const font = createTerminalFontPreference();
+  const colors = createTerminalThemePreference();
   const drafts = createTerminalSettingsDraft();
-  stores.push(font);
+  stores.push(font, colors);
   const content = (active = true) => (
     <StrictMode>
       <ToastProvider>
-        <TerminalSettings font={font} drafts={drafts} active={() => active} />
+        <TerminalSettings
+          font={font}
+          colors={colors}
+          drafts={drafts}
+          active={() => active}
+        />
       </ToastProvider>
     </StrictMode>
   );
-  return { font, content, view: render(content()) };
+  return { font, colors, content, view: render(content()) };
 }
 afterEach(() => {
   cleanup();
@@ -287,4 +293,61 @@ it("keeps failed saves active, hides recovery while inactive, and retries the ac
   await waitFor(() =>
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
   );
+});
+
+it("imports a pasted color scheme, previews it, and removes it back to Buzz", async () => {
+  const user = userEvent.setup();
+  const { colors } = setup();
+  const json = screen.getByRole("textbox", {
+    name: "Windows Terminal color scheme",
+  });
+  const importButton = screen.getByRole("button", { name: "Import" });
+  expect(importButton).toBeDisabled();
+  fireEvent.change(json, { target: { value: '{"name":"Half"}' } });
+  await user.click(importButton);
+  expect(screen.getByText(/“background” must be/)).toBeInTheDocument();
+  expect(colors.snapshot().imported).toEqual([]);
+
+  const palette = Object.fromEntries(
+    [
+      "background",
+      "foreground",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "purple",
+      "cyan",
+      "white",
+      "brightBlack",
+      "brightRed",
+      "brightGreen",
+      "brightYellow",
+      "brightBlue",
+      "brightPurple",
+      "brightCyan",
+      "brightWhite",
+    ].map((key) => [key, key === "background" ? "#282c34" : "#dcdfe4"]),
+  );
+  fireEvent.change(json, {
+    target: { value: JSON.stringify({ name: "One Half Dark", ...palette }) },
+  });
+  await user.click(importButton);
+  expect(json).toHaveValue("");
+  expect(colors.snapshot().scheme).toBe("One Half Dark");
+  expect(
+    screen.getByRole("combobox", { name: "Terminal color scheme" }),
+  ).toHaveTextContent("One Half Dark");
+  expect(
+    screen.getByRole("img", { name: "Preview of One Half Dark" }),
+  ).toHaveStyle({ background: "#282c34" });
+
+  await user.click(
+    screen.getByRole("button", { name: "Remove One Half Dark" }),
+  );
+  expect(colors.snapshot()).toMatchObject({ scheme: "Buzz", imported: [] });
+  expect(
+    screen.getByRole("combobox", { name: "Terminal color scheme" }),
+  ).toHaveTextContent("Buzz");
 });
