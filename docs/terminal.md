@@ -60,7 +60,7 @@ boundary inside the otherwise legacy channel screen, not a second rounded Panel.
 [Windows Terminal format](https://learn.microsoft.com/windows/terminal/customize-settings/color-schemes).
 **Buzz**, the default, is the host-role look above. Selenized ships as a Light/Dark
 pair in `src/bundled/terminal/themes/`. Schemes named `<Base> Light` and
-`<Base> Dark` collapse into one entry, and **Appearance** (Match app, Light or Dark)
+`<Base> Dark`, in any letter case, collapse into one entry, and **Appearance** (Match app, Light or Dark)
 picks the variant. Buzz with an explicit Light or Dark scopes the shared roles to
 the emulator with the `.light`/`.dark` theme owner, as always-dark media does.
 A scheme replaces the whole xterm palette, including the 16 ANSI colors, and its
